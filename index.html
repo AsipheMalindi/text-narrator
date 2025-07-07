@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Text Narrator 📚</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #a1c4fd, #c2e9fb);
+      margin: 0;
+      padding: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      background: white;
+      padding: 40px 30px;
+      border-radius: 20px;
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+      max-width: 600px;
+      width: 100%;
+      text-align: center;
+    }
+
+    h2 { margin-top: 0; font-size: 26px; color: #333; }
+    p { color: #555; font-size: 16px; }
+
+    textarea {
+      width: 100%;
+      height: 160px;
+      padding: 15px;
+      margin-top: 20px;
+      font-size: 16px;
+      border-radius: 12px;
+      border: 1px solid #ccc;
+      background: #f9f9f9;
+      resize: none;
+    }
+
+    textarea:focus {
+      border-color: #007bff;
+      outline: none;
+      background-color: #fff;
+    }
+
+    input[type="file"] {
+      margin-top: 20px;
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      background-color: #fafafa;
+    }
+
+    #imagePreview {
+      display: none;
+      max-width: 100%;
+      margin-top: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 14px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+      transform: translateY(-2px);
+    }
+
+    audio {
+      margin-top: 25px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🎙️ Text Narrator</h2>
+    <p>Type your text or upload a photo of written text to hear it aloud.</p>
+
+    <textarea id="textInput" placeholder="Type or paste your text here..."></textarea>
+    <input type="file" id="imageInput" accept="image/*" capture="environment" />
+    <img id="imagePreview" alt="Preview" />
+
+    <button onclick="narrate()">🔊 Narrate</button>
+
+    <audio id="audioPlayer" controls style="display:none;"></audio>
+  </div>
+
+  <script>
+    const imageInput = document.getElementById("imageInput");
+    const imagePreview = document.getElementById("imagePreview");
+
+    imageInput.addEventListener("change", () => {
+      const file = imageInput.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          imagePreview.src = reader.result;
+          imagePreview.style.display = "block";
+        };
+        reader.readAsDataURL(file);
+      } else {
+        imagePreview.style.display = "none";
+      }
+    });
+
+    async function narrate() {
+      const text = document.getElementById("textInput").value.trim();
+      const imageFile = imageInput.files[0];
+
+      if (!text && !imageFile) {
+        alert("❗ Please enter text or upload an image.");
+        return;
+      }
+
+      const endpoint = "https://cr5gjp2tyl.execute-api.us-east-1.amazonaws.com/prod/narrate";
+
+      try {
+        const formData = new FormData();
+        if (text) formData.append("text", text);
+        if (imageFile) formData.append("image", imageFile);
+
+        const res = await fetch(endpoint, {
+          method: "POST",
+          body: formData
+        });
+
+        if (!res.ok) throw new Error("Server returned an error.");
+
+        const data = await res.json();
+        if (!data.audioBase64) throw new Error("No audio received.");
+
+        const binary = atob(data.audioBase64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+
+        const blob = new Blob([bytes], { type: "audio/mpeg" });
+        const audio = document.getElementById("audioPlayer");
+        audio.src = URL.createObjectURL(blob);
+        audio.style.display = "block";
+        audio.play();
+      } catch (err) {
+        console.error("Narration Error:", err);
+        alert("❌ Failed to generate audio. Please check your input or try again.");
+      }
+    }
+  </script>
+</body>
+</html>
